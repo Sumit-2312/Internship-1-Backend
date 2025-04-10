@@ -5,7 +5,10 @@
   "author": "",
   "license": "ISC",
   "description": "",
+  "scripts": {
+    "dev": "node api/webhook.js"
+  },
   "dependencies": {
-    "express": "^5.1.0",
+    "express": "^5.1.0"
   }
 }
