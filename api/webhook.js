@@ -1,12 +1,11 @@
-import express from 'express';
-// const serverless = require('serverless-http');
-import serverless from 'serverless-http';
+const express = require('express');
+const serverless = require('serverless-http');
 const app = express();
 
-// Your secret token — make one up (Instagram uses it to check your server)
-const VERIFY_TOKEN = "my_secret_token"; // you can change this
+// Your secret token
+const VERIFY_TOKEN = "my_secret_token";
 
-// Required for receiving POST requests (Instagram sends data this way)
+// Required for receiving POST requests
 app.use(express.json());
 
 app.get("/", (req, res) => {
@@ -27,11 +26,11 @@ app.get('/webhook', (req, res) => {
   }
 });
 
-// Later you’ll handle POSTs here
+// POST handler
 app.post('/webhook', (req, res) => {
   console.log("Webhook Event: ", JSON.stringify(req.body, null, 2));
   res.sendStatus(200);
 });
 
-// module.exports.handler = serverless(app);
-export const handler = serverless(app);
+module.exports = app;
+module.exports.handler = serverless(app);
