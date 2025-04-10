@@ -1,5 +1,6 @@
-const express = require('express');
-const serverless = require('serverless-http');
+import express from 'express';
+// const serverless = require('serverless-http');
+import serverless from 'serverless-http';
 const app = express();
 
 // Your secret token — make one up (Instagram uses it to check your server)
