@@ -33,4 +33,5 @@ app.post('/webhook', (req, res) => {
   res.sendStatus(200);
 });
 
-module.exports.handler = serverless(app);
+// module.exports.handler = serverless(app);
+export const handler = serverless(app);
