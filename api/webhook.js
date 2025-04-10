@@ -8,6 +8,10 @@ const VERIFY_TOKEN = "my_secret_token"; // you can change this
 // Required for receiving POST requests (Instagram sends data this way)
 app.use(express.json());
 
+app.get("/", (req, res) => {
+  res.send("Hello from the webhook endpoint!");
+});
+
 // GET endpoint for webhook verification
 app.get('/webhook', (req, res) => {
   const mode = req.query['hub.mode'];
