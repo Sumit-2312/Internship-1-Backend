@@ -15,14 +15,14 @@ AccessTokenRouter.get('/', async (req, res) => {
 
   try {
     const shortTokenResponse = await axios.get('https://graph.facebook.com/v18.0/oauth/access_token', {
-     
+      params: {
         client_id: process.env.APP_ID,
         redirect_uri: process.env.REDIRECT_URI,
         client_secret: process.env.APP_SECRET,
         code: code,
-      
+      }
     });
-
+    
     const shortLivedToken = shortTokenResponse.data.access_token;
 
     if (!shortLivedToken) {
