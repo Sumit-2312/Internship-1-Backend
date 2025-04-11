@@ -1,7 +1,8 @@
-const express = require('express');
-const {Router} = express.Router;
+import express from 'express';
+import dotenv from 'dotenv';
+dotenv.config();
 
-const webhookRouter = Router();
+const webhookRouter = express.Router();
 
 webhookRouter.use(express.json());
 // Webhook verification route
@@ -20,7 +21,7 @@ webhookRouter.get('/', (req, res) => {
     }
 });
 // Endpoint to handle POST requests from Facebook
-app.post('/', (req, res) => {
+webhookRouter.post('/', (req, res) => {
     console.log('Webhook event received:', req.body);
     res.status(200).send('EVENT_RECEIVED');
 });

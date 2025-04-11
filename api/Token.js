@@ -1,7 +1,8 @@
-const express = require('express');
-const axios = require('axios');
-const { Router } = express;
-const AccessTokenRouter = Router();
+import express from 'express';
+import axios from 'axios';
+import dotenv from 'dotenv';
+dotenv.config();
+const AccessTokenRouter = express.Router();
 
 AccessTokenRouter.get('/', async (req, res) => {
   const { code, error_description } = req.query;
