@@ -6,8 +6,8 @@
   "license": "ISC",
   "description": "",
   "scripts": {
-    "start":" node api/webhook.js",
-    "dev": "node api/webhook.js"
+    "start":" node api/index.js",
+    "dev": "node api/index.js"
   },
   "dependencies": {
     "express": "^5.1.0"
