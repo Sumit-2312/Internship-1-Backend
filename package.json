@@ -6,7 +6,7 @@
   "license": "ISC",
   "description": "",
   "scripts": {
-    "start":" node api/index.js",
+    "start":"node api/index.js",
     "dev": "node api/index.js"
   },
   "dependencies": {
