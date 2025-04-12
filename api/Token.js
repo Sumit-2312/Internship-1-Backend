@@ -24,7 +24,7 @@ AccessTokenRouter.get('/', async (req, res) => {
     console.log('Starting token exchange process...');  
     const shortTokenResponse = await axios.get('https://graph.facebook.com/v18.0/oauth/access_token', {
       params: {
-        client_id: process.env.APP_ID,
+        client_id: process.env.CLIENT_ID,
         redirect_uri: process.env.REDIRECT_URI,
         client_secret: process.env.APP_SECRET,
         code: code,
@@ -47,7 +47,7 @@ AccessTokenRouter.get('/', async (req, res) => {
 
       params: {
         grant_type: 'fb_exchange_token',
-        client_id: process.env.APP_ID,
+        client_id: process.env.CLIENT_ID,
         client_secret: process.env.APP_SECRET,
         fb_exchange_token: shortLivedToken,
       },
@@ -73,7 +73,7 @@ AccessTokenRouter.get('/', async (req, res) => {
 
     const errorMessage = err.response?.data?.error?.message || 'Unexpected error during token exchange';
 
-    res.redirect(`${process.env.FE_URL}/error?error="Hitted the catch block${errorMessage}"`);
+    res.redirect(`${process.env.FE_URL}/error?error=${errorMessage}`);
   }
 });
 
