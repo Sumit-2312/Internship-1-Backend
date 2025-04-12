@@ -6,7 +6,7 @@ const app  = express();
 app.use(express.json());
 app.use(cors());
 
-
+app.use('/',AccessTokenRouter);
 app.use('/webhook',webhookRouter);
 app.use('/accessToken',AccessTokenRouter);
 
