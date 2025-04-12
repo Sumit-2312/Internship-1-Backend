@@ -7,7 +7,7 @@ const AccessTokenRouter = express.Router();
 AccessTokenRouter.get('/', async (req, res) => {
   const { code, error_description } = req.query;
 
-  conosole.log('Url',req.url);
+  console.log('Url',req.url);
   console.log('Query',req.query);
   console.log('Code',code);
   console.log('Error Description',error_description);
