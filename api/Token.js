@@ -14,7 +14,7 @@ AccessTokenRouter.get('/', async (req, res) => {
 
   if (!code) {
     console.log('No code provided in the query parameters');
-    
+
     // return res.redirect(
     //   `${process.env.FE_URL}/error?error=${encodeURIComponent(error_description || 'User denied access')}`
     // );
@@ -23,6 +23,9 @@ AccessTokenRouter.get('/', async (req, res) => {
   try {
     console.log('Code received:', code);
     console.log('Starting token exchange process...');  
+
+    console.log(process.env.CLIENT_ID,process.env.REDIRECT_URI,process.env.APP_SECRET,process.env.APP_ID);
+
     const shortTokenResponse = await axios.get('https://graph.facebook.com/v18.0/oauth/access_token', {
       params: {
         client_id: process.env.CLIENT_ID,
