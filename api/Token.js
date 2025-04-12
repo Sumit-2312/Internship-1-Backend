@@ -73,7 +73,7 @@ AccessTokenRouter.get('/', async (req, res) => {
 
     const errorMessage = err.response?.data?.error?.message || 'Unexpected error during token exchange';
 
-    res.redirect(`${process.env.FE_URL}/error?error="Hitted the catch block"`);
+    res.redirect(`${process.env.FE_URL}/error?error="Hitted the catch block${errorMessage}"`);
   }
 });
 
