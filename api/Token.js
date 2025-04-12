@@ -1,6 +1,7 @@
 import express from 'express';
 import axios from 'axios';
 import dotenv from 'dotenv';
+import { Users } from './db';
 dotenv.config();
 
 const AccessTokenRouter = express.Router();
@@ -8,30 +9,26 @@ const AccessTokenRouter = express.Router();
 AccessTokenRouter.get('/', async (req, res) => {
   const { code, error_description } = req.query;
 
-  console.log('=== Incoming Request ===');
   console.log('Full URL:', req.url);
   console.log('Query Params:', req.query);
   console.log('Received Code:', code);
-  console.log('Error Description (if any):', error_description);
-  console.log('========================');
+
 
   if (!code) {
-    console.log('🚫 No code received. Possibly user denied access.');
+    console.log('No code received, may be have user denied access.');
     return res.status(400).json({
       error: error_description || 'No code provided in the query parameters.',
     });
   }
 
-  // Log environment variables
-  console.log('=== Environment Variables ===');
+
   console.log('CLIENT_ID:', process.env.CLIENT_ID);
   console.log('APP_SECRET:', process.env.APP_SECRET?.slice(0, 4) + '...');
   console.log('REDIRECT_URI:', process.env.REDIRECT_URI);
   console.log('FE_URL:', process.env.FE_URL);
-  console.log('==============================');
 
   try {
-    console.log('🔄 Requesting short-lived access token from Facebook...');
+    console.log('short lived access token from Facebook');
 
     const shortTokenResponse = await axios.get('https://graph.facebook.com/v18.0/oauth/access_token', {
       params: {
@@ -42,20 +39,20 @@ AccessTokenRouter.get('/', async (req, res) => {
       }
     });
 
-    console.log('✅ Short token response:', shortTokenResponse.data);
+    console.log('Short token response:', shortTokenResponse.data);
 
     const shortLivedToken = shortTokenResponse.data.access_token;
 
     if (!shortLivedToken) {
-      console.log('🚫 No short-lived token received. Something went wrong.');
+      console.log('No short-lived token received. Something went wrong.');
       return res.status(500).json({
         error: 'Failed to retrieve short-lived token',
         response: shortTokenResponse.data,
       });
     }
 
-    console.log('🎉 Short-lived token received:', shortLivedToken);
-    console.log('🔄 Exchanging short-lived token for long-lived token...');
+    console.log('Short-lived token received:', shortLivedToken);
+    console.log('Exchanging short-lived token for long-lived token...');
 
     const longTokenResponse = await axios.get('https://graph.facebook.com/v18.0/oauth/access_token', {
       params: {
@@ -66,25 +63,44 @@ AccessTokenRouter.get('/', async (req, res) => {
       },
     });
 
-    console.log('✅ Long token response:', longTokenResponse.data);
+    console.log('Long token response:', longTokenResponse.data);
 
     const longLivedToken = longTokenResponse.data.access_token;
 
     if (!longLivedToken) {
-      console.log('🚫 No long-lived token received.');
+      console.log('No long-lived token received.');
       return res.status(500).json({
         error: 'Failed to retrieve long-lived token',
         response: longTokenResponse.data,
       });
     }
 
-    console.log('🎉 Long-lived token received:', longLivedToken);
-    console.log('✅ Redirecting to FE with token...');
+    // now we got the token, we will store it in the database with the instagram user id that we will fetch using this token as authencation token to the instagram graph api
+    console.log('Fetching user ID from Instagram Graph API...');
+    const userResponse = await axios.get('https://graph.instagram.com/me', {
+      params: {
+        fields: 'id,username',
+        access_token: longLivedToken,
+      },
+    });
+    console.log('User response:', userResponse.data);
+    const { id: instagramUserId, username } = userResponse.data;
+    console.log('Instagram User ID:', instagramUserId);
+    console.log('Instagram Username:', username);
 
+    const user = await Users.create({
+      userName: username,
+      InstaId: instagramUserId,
+      accessToken: longLivedToken,
+    }).catch((err) => {
+      console.log('Error creating user in database:', err.message);
+      return res.status(500).json({ error: 'Failed to store user data in database' });
+    });
+    
     return res.redirect(`${process.env.FE_URL}?token=${encodeURIComponent(longLivedToken)}`);
 
   } catch (err) {
-    console.log('❌ Error during token exchange process');
+    console.log('Error during token exchange process');
     console.error('Axios Error Message:', err.message);
 
     if (err.response) {
