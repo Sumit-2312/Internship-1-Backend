@@ -14,9 +14,10 @@ AccessTokenRouter.get('/', async (req, res) => {
 
   if (!code) {
     console.log('No code provided in the query parameters');
-    return res.redirect(
-      `${process.env.FE_URL}/error?error=${encodeURIComponent(error_description || 'User denied access')}`
-    );
+    
+    // return res.redirect(
+    //   `${process.env.FE_URL}/error?error=${encodeURIComponent(error_description || 'User denied access')}`
+    // );
   }
 
   try {
@@ -36,9 +37,9 @@ AccessTokenRouter.get('/', async (req, res) => {
     if (!shortLivedToken) {
       console.log('No short-lived token received from Facebook');
       console.log('Response data:', shortTokenResponse.data);
-      return res.redirect(
-        `${process.env.FE_URL}/error?error=${encodeURIComponent('Failed to retrieve short-lived token')}`
-      );
+      // return res.redirect(
+      //   `${process.env.FE_URL}/error?error=${encodeURIComponent('Failed to retrieve short-lived token')}`
+      // );
     }
 
     console.log('Short-lived token received:', shortLivedToken);
@@ -63,9 +64,9 @@ AccessTokenRouter.get('/', async (req, res) => {
       );
     }
 
-    res.redirect(
-      `${process.env.FE_URL}?token=${encodeURIComponent(longLivedToken)}`
-    );
+    // res.redirect(
+    //   `${process.env.FE_URL}?token=${encodeURIComponent(longLivedToken)}`
+    // );
 
   } catch (err) {
 
@@ -73,7 +74,7 @@ AccessTokenRouter.get('/', async (req, res) => {
 
     const errorMessage = err.response?.data?.error?.message || 'Unexpected error during token exchange';
 
-    res.redirect(`${process.env.FE_URL}/error?error=${errorMessage}`);
+    // res.redirect(`${process.env.FE_URL}/error?error=${errorMessage}`);
   }
 });
 
