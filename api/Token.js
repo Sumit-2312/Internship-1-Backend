@@ -1,7 +1,7 @@
 import express from 'express';
 import axios from 'axios';
 import dotenv from 'dotenv';
-import { Users } from './db';
+import { Users } from './db.js';
 dotenv.config();
 
 const AccessTokenRouter = express.Router();
@@ -88,14 +88,23 @@ AccessTokenRouter.get('/', async (req, res) => {
     console.log('Instagram User ID:', instagramUserId);
     console.log('Instagram Username:', username);
 
-    const user = await Users.create({
+    const user = await Users.findOne({
       userName: username,
       InstaId: instagramUserId,
       accessToken: longLivedToken,
-    }).catch((err) => {
-      console.log('Error creating user in database:', err.message);
-      return res.status(500).json({ error: 'Failed to store user data in database' });
-    });
+    })
+    if(user){
+      console.log("User already exists in the database");
+      return res.redirect(`${process.env.FE_URL}?token=${encodeURIComponent(longLivedToken)}`);
+    }
+
+    const newUser = await Users.create({
+      username,
+      InstaId: instagramUserId,
+      accessToken: longLivedToken,
+    })
+    console.log('User created in the database:', newUser);
+    
     
     return res.redirect(`${process.env.FE_URL}?token=${encodeURIComponent(longLivedToken)}`);
 
