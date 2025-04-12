@@ -27,7 +27,7 @@ webhookRouter.post('/', (req, res) => {
 });
 
 // Deauthorization Callback
-app.post('/webhooks/deauthorize', (req, res) => {
+webhookRouter.post('/webhooks/deauthorize', (req, res) => {
     const user_id = req.body.user_id;
     console.log(`User deauthorized: ${user_id}`);
 
@@ -38,7 +38,7 @@ app.post('/webhooks/deauthorize', (req, res) => {
 });
 
 // Data Deletion Callback
-app.post('/webhooks/delete-data', (req, res) => {
+webhookRouter.post('/webhooks/delete-data', (req, res) => {
     const signedRequest = req.body.signed_request;
 
     // Verify and decode signed request (optional but recommended)
