@@ -1,8 +1,10 @@
 import express from 'express';
+import cors from 'cors';
 import webhookRouter from './webhook.js';
 import AccessTokenRouter from './Token.js';
 const app  = express();
 app.use(express.json());
+app.use(cors());
 
 
 app.use('/webhook',webhookRouter);

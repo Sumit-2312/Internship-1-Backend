@@ -59,7 +59,7 @@ AccessTokenRouter.get('/', async (req, res) => {
       console.log('No long-lived token received from Facebook');
       console.log('Response data:', longTokenResponse.data);
       return res.redirect(
-        `${process.env.FE_URL}/error?error=${encodeURIComponent('Failed to retrieve long-lived token')}`
+        `${process.env.FE_URL}/error?error="error in long lived token"`
       );
     }
 
@@ -73,7 +73,7 @@ AccessTokenRouter.get('/', async (req, res) => {
 
     const errorMessage = err.response?.data?.error?.message || 'Unexpected error during token exchange';
 
-    res.redirect(`${process.env.FE_URL}/error?error=${encodeURIComponent(errorMessage)}`);
+    res.redirect(`${process.env.FE_URL}/error?error="Hitted the catch block"`);
   }
 });
 
