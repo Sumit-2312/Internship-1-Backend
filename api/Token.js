@@ -72,18 +72,17 @@ AccessTokenRouter.get('/', async (req, res) => {
     let existingUser = await Users.findOne({ InstaId: instagramUserId });
 
     if (existingUser) {
-      // Step 4a: Check if token is missing or outdated in DB
+      // If reconnect triggered but user exists without valid token
       if (!existingUser.accessToken || existingUser.accessToken !== longLivedToken) {
-        console.log('Updating token for existing user...');
+        console.log('Updating access token...');
         existingUser.accessToken = longLivedToken;
         await existingUser.save();
-      } else {
-        console.log('User exists and token is up to date.');
       }
-
-      // Step 4b: Redirect
+    
+      // Always redirect with fresh token
       return res.redirect(`${process.env.FE_URL}?token=${encodeURIComponent(longLivedToken)}`);
     }
+    
 
     // Step 5: Store new user in DB
     const newUser = await Users.create({
