@@ -66,7 +66,10 @@ AccessTokenRouter.get('/', async (req, res) => {
     });
 
     const fbUserId = fbUser.data.id;
-
+    console.log('Facebook User ID:', fbUserId);
+    if (!fbUserId) {
+      return res.status(400).json({ error: "Failed to retrieve Facebook user ID." });
+    }
     // Step 3b: Get user's Facebook Pages
     const pages = await axios.get(`https://graph.facebook.com/v18.0/${fbUserId}/accounts`, {
       params: {
