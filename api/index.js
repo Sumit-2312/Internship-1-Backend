@@ -21,6 +21,7 @@ async function main(){
     app.use('/',AccessTokenRouter);
     app.use('/webhook',webhookRouter);
     app.use('/accessToken',AccessTokenRouter);
+    app.use('/user',UserRouter);
     
     app.listen(3000, () => {
         console.log('Webhook server is listening on port 3000');
