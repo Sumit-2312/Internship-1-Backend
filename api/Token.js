@@ -1,7 +1,8 @@
 import express from 'express';
 import axios from 'axios';
 import dotenv from 'dotenv';
-import { Users } from './db.js';  // Ensure this is the correct path
+import { Users } from './db.js';  // Adjust if necessary
+
 dotenv.config();
 
 const AccessTokenRouter = express.Router();
@@ -14,7 +15,6 @@ AccessTokenRouter.get('/', async (req, res) => {
   console.log('Received Code:', code);
 
   if (!code) {
-    console.log('No code received, user may have denied access.');
     return res.status(400).json({
       error: error_description || 'No code provided in the query parameters.',
     });
@@ -58,33 +58,67 @@ AccessTokenRouter.get('/', async (req, res) => {
       });
     }
 
-    // Step 3: Fetch Instagram user ID and username
-    const userResponse = await axios.get('https://graph.instagram.com/me', {
+    // Step 3a: Get Facebook user ID
+    const fbUser = await axios.get(`https://graph.facebook.com/v18.0/me`, {
       params: {
-        fields: 'id,username',
         access_token: longLivedToken,
-      },
+      }
     });
 
-    const { id: instagramUserId, username } = userResponse.data;
+    const fbUserId = fbUser.data.id;
+
+    // Step 3b: Get user's Facebook Pages
+    const pages = await axios.get(`https://graph.facebook.com/v18.0/${fbUserId}/accounts`, {
+      params: {
+        access_token: longLivedToken,
+      }
+    });
+
+    if (!pages.data.data.length) {
+      return res.status(400).json({ error: "No Facebook pages connected to this user." });
+    }
+
+    const page = pages.data.data[0];
+    const pageId = page.id;
+    const pageAccessToken = page.access_token;
+
+    // Step 3c: Get Instagram Business Account ID
+    const igResponse = await axios.get(`https://graph.facebook.com/v18.0/${pageId}`, {
+      params: {
+        fields: 'instagram_business_account',
+        access_token: pageAccessToken,
+      }
+    });
+
+    const igUserId = igResponse.data.instagram_business_account?.id;
+    if (!igUserId) {
+      return res.status(400).json({ error: "No Instagram Business account linked to this Facebook Page." });
+    }
+
+    // Step 3d: Get Instagram user details
+    const igDetails = await axios.get(`https://graph.facebook.com/v18.0/${igUserId}`, {
+      params: {
+        fields: 'id,username',
+        access_token: pageAccessToken,
+      }
+    });
+
+    const { id: instagramUserId, username } = igDetails.data;
 
     // Step 4: Check if user exists in DB
     let existingUser = await Users.findOne({ InstaId: instagramUserId });
 
     if (existingUser) {
-      // If reconnect triggered but user exists without valid token
       if (!existingUser.accessToken || existingUser.accessToken !== longLivedToken) {
         console.log('Updating access token...');
         existingUser.accessToken = longLivedToken;
         await existingUser.save();
       }
-    
-      // Always redirect with fresh token
+
       return res.redirect(`${process.env.FE_URL}?token=${encodeURIComponent(longLivedToken)}`);
     }
-    
 
-    // Step 5: Store new user in DB
+    // Step 5: Create new user in DB
     const newUser = await Users.create({
       userName: username,
       InstaId: instagramUserId,
