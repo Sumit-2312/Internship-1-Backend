@@ -10,9 +10,11 @@ const AccessTokenRouter = express.Router();
 AccessTokenRouter.get('/', async (req, res) => {
   const { code, error_description } = req.query;
 
+  // Log the full URL and query parameters for debugging
   console.log('👉 Full URL:', req.url);
   console.log('👉 Query Params:', req.query);
 
+  // Ensure the code parameter is provided in the request
   if (!code) {
     return res.status(400).json({
       error: error_description || 'No code provided in the query parameters.',
@@ -33,8 +35,6 @@ AccessTokenRouter.get('/', async (req, res) => {
     });
 
     const shortLivedToken = shortTokenResp.data.access_token;
-    console.log('🔑 Short-Lived Token:', shortLivedToken);
-
     if (!shortLivedToken) {
       return res.status(500).json({ error: 'Could not retrieve short-lived token.' });
     }
@@ -52,8 +52,6 @@ AccessTokenRouter.get('/', async (req, res) => {
     });
 
     const longLivedToken = longTokenResp.data.access_token;
-    console.log('🔐 Long-Lived Token:', longLivedToken);
-
     if (!longLivedToken) {
       return res.status(500).json({ error: 'Could not retrieve long-lived token.' });
     }
@@ -66,10 +64,12 @@ AccessTokenRouter.get('/', async (req, res) => {
     });
 
     const fbUserId = fbUserResp.data.id;
-    console.log('🆔 FB User ID:', fbUserId);
+    if (!fbUserId) {
+      return res.status(500).json({ error: 'Could not retrieve Facebook User ID.' });
+    }
 
     /** -------------------------
-     * 🔎 STEP 3a.5: Debug Token
+     * 🔎 STEP 3b: Debug Token (Check for required permissions)
      -------------------------- */
     const debugResp = await axios.get(`https://graph.facebook.com/debug_token`, {
       params: {
@@ -79,8 +79,6 @@ AccessTokenRouter.get('/', async (req, res) => {
     });
 
     const grantedScopes = debugResp.data.data.scopes;
-    console.log('🔍 Granted Scopes:', grantedScopes);
-
     if (!grantedScopes.includes('pages_show_list')) {
       return res.status(403).json({
         error: 'Missing required scope: pages_show_list',
@@ -89,58 +87,30 @@ AccessTokenRouter.get('/', async (req, res) => {
     }
 
     /** -------------------------
-     * 📄 STEP 3b: Get Pages
+     * 📄 STEP 3c: Get Facebook Pages
      -------------------------- */
     const pagesResp = await axios.get(`https://graph.facebook.com/v18.0/${fbUserId}/accounts`, {
       params: { access_token: longLivedToken },
     });
-    
-    // Add more detailed logging
-    console.log('📄 Pages Response:', JSON.stringify(pagesResp.data, null, 2));
 
     const pages = pagesResp.data.data || [];
-
     if (!pages.length) {
-      // Check if user has any pages at all
-      try {
-        // Try getting user's permissions and roles directly
-        const permissionsResp = await axios.get(`https://graph.facebook.com/v18.0/${fbUserId}/permissions`, {
-          params: { access_token: longLivedToken },
-        });
-        
-        console.log('👮‍♂️ User Permissions:', JSON.stringify(permissionsResp.data, null, 2));
-        
-        return res.status(400).json({
-          error: 'No Facebook pages connected to this user.',
-          debug: {
-            fbUserId,
-            grantedScopes,
-            permissions: permissionsResp.data,
-            suggestion: 'Make sure you are an admin of the Facebook page and have connected Instagram to the page.'
-          },
-        });
-      } catch (permErr) {
-        console.error('❌ Error getting permissions:', permErr.message);
-        return res.status(400).json({
-          error: 'No Facebook pages connected to this user.',
-          debug: {
-            fbUserId,
-            grantedScopes,
-            suggestion: 'Verify that you are an admin of a Facebook page and have connected an Instagram business account to it.'
-          },
-        });
-      }
+      return res.status(400).json({
+        error: 'No Facebook pages connected to this user.',
+        debug: {
+          fbUserId,
+          grantedScopes,
+          suggestion: 'Make sure you are an admin of the Facebook page and have connected Instagram to the page.',
+        },
+      });
     }
 
-    const page = pages[0];
+    const page = pages[0]; // Select the first page if multiple pages exist
     const pageId = page.id;
     const pageAccessToken = page.access_token;
 
-    console.log('📘 Page ID:', pageId);
-    console.log('🪪 Page Access Token:', pageAccessToken);
-
     /** -------------------------
-     * 📸 STEP 3c: Get Instagram Account
+     * 📸 STEP 3d: Get Instagram Business Account
      -------------------------- */
     const igResponse = await axios.get(`https://graph.facebook.com/v18.0/${pageId}`, {
       params: {
@@ -154,10 +124,8 @@ AccessTokenRouter.get('/', async (req, res) => {
       return res.status(400).json({ error: 'No Instagram Business account linked to this Facebook Page.' });
     }
 
-    console.log('📷 Instagram Business Account ID:', igUserId);
-
     /** -------------------------
-     * 👤 STEP 3d: Instagram Profile
+     * 👤 STEP 3e: Get Instagram Profile Details
      -------------------------- */
     const igDetails = await axios.get(`https://graph.facebook.com/v18.0/${igUserId}`, {
       params: {
@@ -167,7 +135,9 @@ AccessTokenRouter.get('/', async (req, res) => {
     });
 
     const { id: instagramUserId, username } = igDetails.data;
-    console.log('👤 Instagram Username:', username);
+    if (!instagramUserId || !username) {
+      return res.status(500).json({ error: 'Failed to retrieve Instagram user details.' });
+    }
 
     /** -------------------------
      * 💾 STEP 4: Save to DB
@@ -175,9 +145,10 @@ AccessTokenRouter.get('/', async (req, res) => {
     let user = await Users.findOne({ InstaId: instagramUserId });
 
     if (user) {
-      user.accessToken = longLivedToken;
+      user.accessToken = longLivedToken; // Update access token if user exists
       await user.save();
     } else {
+      // Create a new user entry if none exists
       user = await Users.create({
         userName: username,
         InstaId: instagramUserId,
@@ -186,16 +157,17 @@ AccessTokenRouter.get('/', async (req, res) => {
     }
 
     /** -------------------------
-     * 🌐 STEP 5: Redirect
+     * 🌐 STEP 5: Redirect to Frontend
      -------------------------- */
     return res.redirect(`${process.env.FE_URL}?token=${encodeURIComponent(longLivedToken)}`);
 
   } catch (err) {
-    console.error('\n❌ Error:', err.message);
+    console.error('❌ Error:', err.message);
     if (err.response) {
       console.error('⛔ Status:', err.response.status);
       console.error('🪵 Data:', JSON.stringify(err.response.data, null, 2));
     }
+
     return res.status(500).json({
       error: err.response?.data?.error?.message || 'Unexpected error during token exchange.',
     });

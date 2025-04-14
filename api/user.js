@@ -1,11 +1,14 @@
 import express from 'express';
 import axios from 'axios';
+
 const UserRouter = express.Router();
 
-// Profile info including followers/following
+/** -------------------------------
+ * 📄 GET: Instagram Profile Info
+ -------------------------------- */
 UserRouter.get('/profile-info', async (req, res) => {
   const { igUserId, pageAccessToken } = req.query;
-  
+
   if (!igUserId || !pageAccessToken) {
     return res.status(400).json({ error: 'igUserId and pageAccessToken are required' });
   }
@@ -18,11 +21,9 @@ UserRouter.get('/profile-info', async (req, res) => {
       },
     });
 
-    return res.json({
-      profileInfo: userResponse.data,
-    });
+    return res.json({ profileInfo: userResponse.data });
   } catch (error) {
-    console.error('Error fetching profile:', error.response?.data || error.message);
+    console.error('❌ Error fetching profile:', error.response?.data || error.message);
     return res.status(500).json({ 
       error: 'Failed to fetch profile info',
       details: error.response?.data || error.message
@@ -30,10 +31,12 @@ UserRouter.get('/profile-info', async (req, res) => {
   }
 });
 
-// Media content (posts, reels, albums)
+/** -------------------------------
+ * 🖼️ GET: Instagram Media Info
+ -------------------------------- */
 UserRouter.get('/media-info', async (req, res) => {
   const { igUserId, pageAccessToken } = req.query;
-  
+
   if (!igUserId || !pageAccessToken) {
     return res.status(400).json({ error: 'igUserId and pageAccessToken are required' });
   }
@@ -46,11 +49,9 @@ UserRouter.get('/media-info', async (req, res) => {
       },
     });
 
-    return res.json({
-      mediaInfo: mediaResponse.data,
-    });
+    return res.json({ mediaInfo: mediaResponse.data });
   } catch (error) {
-    console.error('Error fetching media:', error.response?.data || error.message);
+    console.error('❌ Error fetching media:', error.response?.data || error.message);
     return res.status(500).json({ 
       error: 'Failed to fetch media info',
       details: error.response?.data || error.message
@@ -58,7 +59,9 @@ UserRouter.get('/media-info', async (req, res) => {
   }
 });
 
-// GET: Fetch all comments for a given media post
+/** ------------------------------------
+ * 💬 GET: Comments on Media Post
+ ------------------------------------- */
 UserRouter.get('/comments', async (req, res) => {
   const { mediaId, accessToken } = req.query;
 
@@ -76,7 +79,7 @@ UserRouter.get('/comments', async (req, res) => {
 
     return res.json({ comments: commentsResponse.data.data });
   } catch (error) {
-    console.error('Error fetching comments:', error.response?.data || error.message);
+    console.error('❌ Error fetching comments:', error.response?.data || error.message);
     return res.status(500).json({
       error: 'Failed to fetch comments',
       details: error.response?.data || error.message,
@@ -84,7 +87,9 @@ UserRouter.get('/comments', async (req, res) => {
   }
 });
 
-// POST: Reply to a comment
+/** ------------------------------------
+ * 💬 POST: Reply to a Comment
+ ------------------------------------- */
 UserRouter.post('/reply', async (req, res) => {
   const { commentId, message, accessToken } = req.body;
 
@@ -109,7 +114,7 @@ UserRouter.post('/reply', async (req, res) => {
       replyId: replyResponse.data.id,
     });
   } catch (error) {
-    console.error('Error replying to comment:', error.response?.data || error.message);
+    console.error('❌ Error replying to comment:', error.response?.data || error.message);
     return res.status(500).json({
       error: 'Failed to reply to comment',
       details: error.response?.data || error.message,
