@@ -1,7 +1,7 @@
 import express from 'express';
 import axios from 'axios';
 import dotenv from 'dotenv';
-import { Users } from './db.js';  // Adjust if necessary
+import { Users } from './db.js';
 
 dotenv.config();
 
@@ -12,13 +12,6 @@ AccessTokenRouter.get('/', async (req, res) => {
 
   console.log('👉 Full URL:', req.url);
   console.log('👉 Query Params:', req.query);
-  console.log('👉 Received Code:', code);
-
-  console.log('\n🔍 ENVIRONMENT CONFIGURATION');
-  console.log('✅ CLIENT_ID:', process.env.CLIENT_ID);
-  console.log('✅ REDIRECT_URI:', process.env.REDIRECT_URI);
-  console.log('✅ APP_SECRET:', process.env.APP_SECRET?.slice(0, 4) + '****');
-  console.log('✅ FE_URL:', process.env.FE_URL);
 
   if (!code) {
     return res.status(400).json({
@@ -27,146 +20,159 @@ AccessTokenRouter.get('/', async (req, res) => {
   }
 
   try {
-    // Step 1: Get short-lived access token from Facebook
-    console.log('\n🚀 Requesting short-lived token from Facebook...');
-    const shortTokenURL = 'https://graph.facebook.com/v18.0/oauth/access_token';
-    const shortTokenParams = {
-      client_id: process.env.CLIENT_ID,
-      redirect_uri: process.env.REDIRECT_URI,
-      client_secret: process.env.APP_SECRET,
-      code,
-    };
-    console.log('🌐 Short Token Request URL:', shortTokenURL);
-    console.log('📦 Params:', shortTokenParams);
+    /** -------------------------
+     * 🔐 STEP 1: Short-lived Token
+     -------------------------- */
+    const shortTokenResp = await axios.get('https://graph.facebook.com/v18.0/oauth/access_token', {
+      params: {
+        client_id: process.env.CLIENT_ID,
+        redirect_uri: process.env.REDIRECT_URI,
+        client_secret: process.env.APP_SECRET,
+        code,
+      },
+    });
 
-    const shortTokenResponse = await axios.get(shortTokenURL, { params: shortTokenParams });
-    const shortLivedToken = shortTokenResponse.data.access_token;
-
+    const shortLivedToken = shortTokenResp.data.access_token;
     console.log('🔑 Short-Lived Token:', shortLivedToken);
 
     if (!shortLivedToken) {
-      return res.status(500).json({
-        error: 'Failed to retrieve short-lived token',
-        response: shortTokenResponse.data,
-      });
+      return res.status(500).json({ error: 'Could not retrieve short-lived token.' });
     }
 
-    // Step 2: Exchange short-lived token for long-lived token
-    console.log('\n🔁 Exchanging for long-lived token...');
-    const longTokenParams = {
-      grant_type: 'fb_exchange_token',
-      client_id: process.env.CLIENT_ID,
-      client_secret: process.env.APP_SECRET,
-      fb_exchange_token: shortLivedToken,
-    };
-    console.log('📦 Long Token Params:', longTokenParams);
+    /** -------------------------
+     * 🔄 STEP 2: Exchange for Long-lived Token
+     -------------------------- */
+    const longTokenResp = await axios.get('https://graph.facebook.com/v18.0/oauth/access_token', {
+      params: {
+        grant_type: 'fb_exchange_token',
+        client_id: process.env.CLIENT_ID,
+        client_secret: process.env.APP_SECRET,
+        fb_exchange_token: shortLivedToken,
+      },
+    });
 
-    const longTokenResponse = await axios.get(shortTokenURL, { params: longTokenParams });
-    const longLivedToken = longTokenResponse.data.access_token;
-
+    const longLivedToken = longTokenResp.data.access_token;
     console.log('🔐 Long-Lived Token:', longLivedToken);
 
     if (!longLivedToken) {
-      return res.status(500).json({
-        error: 'Failed to retrieve long-lived token',
-        response: longTokenResponse.data,
+      return res.status(500).json({ error: 'Could not retrieve long-lived token.' });
+    }
+
+    /** -------------------------
+     * 🔎 STEP 3a: Get /me Info
+     -------------------------- */
+    const fbUserResp = await axios.get('https://graph.facebook.com/v18.0/me', {
+      params: { access_token: longLivedToken },
+    });
+
+    const fbUserId = fbUserResp.data.id;
+    console.log('🆔 FB User ID:', fbUserId);
+
+    /** -------------------------
+     * 🔎 STEP 3a.5: Debug Token
+     -------------------------- */
+    const debugResp = await axios.get(`https://graph.facebook.com/debug_token`, {
+      params: {
+        input_token: longLivedToken,
+        access_token: `${process.env.CLIENT_ID}|${process.env.APP_SECRET}`,
+      },
+    });
+
+    const grantedScopes = debugResp.data.data.scopes;
+    console.log('🔍 Granted Scopes:', grantedScopes);
+
+    if (!grantedScopes.includes('pages_show_list')) {
+      return res.status(403).json({
+        error: 'Missing required scope: pages_show_list',
+        grantedScopes,
       });
     }
 
-    // Step 3a: Get Facebook user ID
-    console.log('\n👤 Fetching Facebook user info...');
-    const fbUser = await axios.get(`https://graph.facebook.com/v18.0/me`, {
+    /** -------------------------
+     * 📄 STEP 3b: Get Pages
+     -------------------------- */
+    const pagesResp = await axios.get(`https://graph.facebook.com/v18.0/${fbUserId}/accounts`, {
       params: { access_token: longLivedToken },
     });
 
-    const fbUserId = fbUser.data.id;
-    console.log('🆔 Facebook User ID:', fbUserId);
+    const pages = pagesResp.data.data;
 
-    if (!fbUserId) {
-      return res.status(400).json({ error: "Failed to retrieve Facebook user ID." });
+    if (!pages.length) {
+      return res.status(400).json({
+        error: 'No Facebook pages connected to this user.',
+        debug: {
+          fbUserId,
+          grantedScopes,
+        },
+      });
     }
 
-    // Step 3b: Get user's Facebook Pages
-    console.log('\n📄 Fetching connected Facebook pages...');
-    const pages = await axios.get(`https://graph.facebook.com/v18.0/${fbUserId}/accounts`, {
-      params: { access_token: longLivedToken },
-    });
-
-    if (!pages.data.data.length) {
-      return res.status(400).json({ error: "No Facebook pages connected to this user." });
-    }
-
-    const page = pages.data.data[0];
+    const page = pages[0];
     const pageId = page.id;
     const pageAccessToken = page.access_token;
 
     console.log('📘 Page ID:', pageId);
     console.log('🪪 Page Access Token:', pageAccessToken);
 
-    // Step 3c: Get Instagram Business Account ID
-    console.log('\n📸 Fetching Instagram Business Account...');
+    /** -------------------------
+     * 📸 STEP 3c: Get Instagram Account
+     -------------------------- */
     const igResponse = await axios.get(`https://graph.facebook.com/v18.0/${pageId}`, {
       params: {
         fields: 'instagram_business_account',
         access_token: pageAccessToken,
-      }
+      },
     });
 
     const igUserId = igResponse.data.instagram_business_account?.id;
-    console.log('📷 Instagram Business Account ID:', igUserId);
-
     if (!igUserId) {
-      return res.status(400).json({ error: "No Instagram Business account linked to this Facebook Page." });
+      return res.status(400).json({ error: 'No Instagram Business account linked to this Facebook Page.' });
     }
 
-    // Step 3d: Get Instagram user details
+    console.log('📷 Instagram Business Account ID:', igUserId);
+
+    /** -------------------------
+     * 👤 STEP 3d: Instagram Profile
+     -------------------------- */
     const igDetails = await axios.get(`https://graph.facebook.com/v18.0/${igUserId}`, {
       params: {
         fields: 'id,username',
         access_token: pageAccessToken,
-      }
+      },
     });
 
     const { id: instagramUserId, username } = igDetails.data;
-    console.log('👤 Instagram ID:', instagramUserId);
     console.log('👤 Instagram Username:', username);
 
-    // Step 4: Check if user exists in DB
-    let existingUser = await Users.findOne({ InstaId: instagramUserId });
+    /** -------------------------
+     * 💾 STEP 4: Save to DB
+     -------------------------- */
+    let user = await Users.findOne({ InstaId: instagramUserId });
 
-    if (existingUser) {
-      console.log('🟢 Existing user found');
-      if (!existingUser.accessToken || existingUser.accessToken !== longLivedToken) {
-        console.log('📝 Updating access token...');
-        existingUser.accessToken = longLivedToken;
-        await existingUser.save();
-      }
-
-      console.log('🔁 Redirecting to frontend with token...');
-      return res.redirect(`${process.env.FE_URL}?token=${encodeURIComponent(longLivedToken)}`);
+    if (user) {
+      user.accessToken = longLivedToken;
+      await user.save();
+    } else {
+      user = await Users.create({
+        userName: username,
+        InstaId: instagramUserId,
+        accessToken: longLivedToken,
+      });
     }
 
-    // Step 5: Create new user in DB
-    const newUser = await Users.create({
-      userName: username,
-      InstaId: instagramUserId,
-      accessToken: longLivedToken,
-    });
-
-    console.log('🆕 New user created:', newUser);
-
-    // Step 6: Redirect to frontend
+    /** -------------------------
+     * 🌐 STEP 5: Redirect
+     -------------------------- */
     return res.redirect(`${process.env.FE_URL}?token=${encodeURIComponent(longLivedToken)}`);
 
   } catch (err) {
-    console.error('\n❌ Error during token exchange:', err.message);
+    console.error('\n❌ Error:', err.message);
     if (err.response) {
       console.error('⛔ Status:', err.response.status);
-      console.error('🪵 Data:', err.response.data);
+      console.error('🪵 Data:', JSON.stringify(err.response.data, null, 2));
     }
-
     return res.status(500).json({
-      error: err.response?.data?.error?.message || 'Unexpected error during token exchange',
+      error: err.response?.data?.error?.message || 'Unexpected error during token exchange.',
     });
   }
 });
